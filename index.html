@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>The Convoy DayZ Server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    name="description"
+    content="The Convoy – a hardcore modded DayZ experience with custom events, loot rooms, and quests."
+  />
+
+  <style>
+     /* BLOODBATH RED BORDER (active state) */
+body.bloodbath-active {
+  border: 6px solid rgba(255, 40, 40, 0.85);
+  box-shadow: 0 0 30px rgba(255, 0, 0, 0.7),
+              inset 0 0 25px rgba(255, 0, 0, 0.5);
+}
+
+/* BLOODBATH LIVE POPUP */
+#bloodbathPopup {
+  position: fixed;
+  top: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(120, 0, 0, 0.9);
+  color: #ffdada;
+  padding: 14px 32px;
+  font-size: 1rem;
+  letter-spacing: 0.15em;
+  border: 2px solid rgba(255, 80, 80, 0.9);
+  border-radius: 10px;
+  z-index: 9999;
+  box-shadow: 0 0 18px rgba(255, 0, 0, 0.9);
+  text-transform: uppercase;
+  text-align: center;
+  opacity: 0;
+  transition: 0.6s ease;
+  font-weight: bold;
+}
+
+/* When active */
+#bloodbathPopup.show {
+  top: 20px;
+  opacity: 1;
+}
+
+    :root {
+      --bg: #050608;
+      --bg-alt: #101218;
+      --card: #141720;
+      --accent: #f0b232;   /* rusty gold */
+      --accent-soft: #66502b;
+      --accent-strong: #ff4b2b;
+      --text: #f3f3f3;
+      --muted: #a8a8b2;
+      --border: #252736;
+      --nav: rgba(5, 6, 8, 0.9);
+      --link: #5fa8ff;     /* convoy blue accent */
+      --shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.7);
+      --radius-lg: 18px;
+      --transition-fast: 0.18s ease-out;
+      --font-title: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+    }
+
+    body[data-theme="light"] {
+      --bg: #f5f1ea;
+      --bg-alt: #ece4d8;
+      --card: #ffffff;
+      --text: #141414;
+      --muted: #5f5f68;
+      --border: #d4c7b4;
+      --nav: rgba(245, 241, 234, 0.9);
+      --shadow-soft: 0 14px 40px rgba(0, 0, 0, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Layout */
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: var(--nav);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0.7rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .brand img {
+      height: 40px;
+      width: auto;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+
+    .brand-title {
+      font-family: var(--font-title);
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      gap: 1.2rem;
+      font-size: 0.9rem;
+    }
+
+    nav li a {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 600;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    nav li a:hover {
+      color: var(--accent);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .pill-badge {
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--accent-soft);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      background: radial-gradient(circle at 0 0, rgba(255, 114, 54, 0.4), transparent);
+    }
+
+    .toggle-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 0.35rem 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      transition: background var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .toggle-btn span {
+      font-size: 1.1rem;
+    }
+
+    .toggle-btn:hover {
+      transform: translateY(-1px);
+      background: var(--bg-alt);
+    }
+
+    main {
+      flex: 1;
+    }
+
+    .section {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem;
+    }
+
+    /* Hero */
+
+    .hero {
+      position: relative;
+      padding-top: 3rem;
+      padding-bottom: 3.5rem;
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr);
+      gap: 2.5rem;
+      align-items: center;
+    }
+
+    .hero::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      opacity: 0.35;
+      background:
+        radial-gradient(circle at top, rgba(255, 120, 50, 0.28), transparent 55%),
+        radial-gradient(circle at bottom, rgba(117, 169, 255, 0.16), transparent 55%);
+      pointer-events: none;
+    }
+
+    /* Optional rust texture – add your own file at assets/rust-texture.jpg */
+    body[data-theme="dark"] .hero::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -3;
+      background-image: url("assets/rust-texture.jpg");
+      background-size: cover;
+      background-position: center;
+      mix-blend-mode: multiply;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .hero-main {
+      display: flex;
+      flex-direction: column;
+      gap: 1.4rem;
+    }
+
+    .hero-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.25em;
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .hero-kicker::before {
+      content: "";
+      width: 42px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+
+    .hero-title {
+      font-family: var(--font-title);
+      font-size: clamp(2.3rem, 4vw, 3.2rem);
+      line-height: 1.08;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+    }
+
+    .hero-title span {
+      display: block;
+    }
+
+    .hero-title .accent {
+      color: var(--accent);
+      text-shadow: 0 0 20px rgba(255, 120, 50, 0.6);
+    }
+
+    .hero-subtitle {
+      max-width: 36rem;
+      font-size: 0.96rem;
+      color: var(--muted);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      margin-top: 0.3rem;
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 0.7rem 1.2rem;
+      font-size: 0.86rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: background var(--transition-fast), transform var(--transition-fast),
+        box-shadow var(--transition-fast), border-color var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #050608;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.8);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+
+    .hero-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-meta span strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .hero-art {
+      background: radial-gradient(circle at top, rgba(0, 0, 0, 0.65), transparent 60%),
+        linear-gradient(145deg, rgba(10, 10, 14, 0.95), rgba(4, 4, 6, 0.95));
+      border-radius: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      box-shadow: var(--shadow-soft);
+      padding: 0.9rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-art-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-tag {
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.68rem;
+    }
+
+    .hero-art img {
+      width: 100%;
+      display: block;
+      border-radius: 18px;
+      object-fit: cover;
+      max-height: 320px;
+    }
+
+    .hero-ribbon {
+      position: absolute;
+      bottom: 0.9rem;
+      left: 0.9rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(3, 3, 3, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.7rem;
+      display: inline-flex;
+      gap: 0.45rem;
+      align-items: center;
+      backdrop-filter: blur(12px);
+    }
+
+    .hero-ribbon span.dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #46ff4f;
+      box-shadow: 0 0 12px rgba(79, 255, 111, 0.85);
+    }
+
+    .hero-ribbon strong {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.64rem;
+    }
+
+    /* Cards & grids */
+
+    .section-title {
+      font-family: var(--font-title);
+      font-size: 1.4rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+
+    .section-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .section-subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 32rem;
+      margin-bottom: 1.6rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.2rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.4rem;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 1.1rem 1.1rem 1.15rem;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(255, 120, 50, 0.17), transparent 55%);
+      opacity: 0.7;
+      pointer-events: none;
+      mix-blend-mode: soft-light;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.6rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-title {
+      font-size: 0.96rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .card-badge {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+    }
+
+    .card-body {
+      font-size: 0.86rem;
+      color: var(--muted);
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-body ul {
+      list-style: none;
+      margin-top: 0.45rem;
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .card-body li::before {
+      content: "•";
+      margin-right: 0.4rem;
+      color: var(--accent);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.45rem;
+    }
+
+    .pill {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      color: var(--muted);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    /* Servers section */
+
+    .server-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.1rem;
+    }
+
+    .server-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .server-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.4rem;
+    }
+
+    .server-chip {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+    }
+
+    .server-ip {
+      margin-top: 0.5rem;
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+        monospace;
+      font-size: 0.78rem;
+      padding: 0.4rem 0.55rem;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px dashed rgba(255, 255, 255, 0.18);
+    }
+
+    .server-ip span {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .server-actions {
+      margin-top: 0.6rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-mini {
+      font-size: 0.72rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.4);
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .btn-mini:hover {
+      border-color: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* Rules */
+
+    .rules-list {
+      list-style: none;
+      font-size: 0.86rem;
+      color: var(--muted);
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .rules-list li span.num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.4rem;
+      height: 1.4rem;
+      border-radius: 999px;
+      border: 1px solid var(--accent-soft);
+      margin-right: 0.5rem;
+      font-size: 0.74rem;
+      color: var(--accent);
+    }
+
+    /* How to join */
+
+    .steps {
+      list-style: none;
+      font-size: 0.86rem;
+      color: var(--muted);
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .steps li strong {
+      color: var(--accent);
+    }
+
+    /* Mods */
+
+    .mods-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .mods-grid ul {
+      list-style: none;
+      display: grid;
+      gap: 0.22rem;
+    }
+
+    .mods-grid li::before {
+      content: "▣";
+      margin-right: 0.4rem;
+      color: var(--accent);
+      font-size: 0.7rem;
+    }
+
+    /* Announcements / Discord */
+
+    .announcements {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 1.2rem;
+    }
+
+    .ann-feed {
+      display: grid;
+      gap: 0.75rem;
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+
+    .ann-item {
+      padding: 0.6rem 0.7rem;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .ann-item small {
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.64rem;
+      color: var(--accent);
+    }
+
+    .ann-item h4 {
+      font-size: 0.9rem;
+      margin: 0.1rem 0 0.25rem;
+    }
+
+    .discord-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    .discord-tag {
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.55rem;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.4rem 1.25rem 1.6rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+      background: radial-gradient(circle at top, rgba(255, 120, 50, 0.16), transparent 58%);
+    }
+
+    footer span.brand-foot {
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 600;
+    }
+
+    /* BloodBath Clock Bar */
+    .clock-bar {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0.35rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: linear-gradient(
+        90deg,
+        rgba(255, 120, 50, 0.16),
+        rgba(0, 0, 0, 0.8)
+      );
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    #clockTime {
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    #bloodbathStatus {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.7rem;
+    }
+
+    .clock-bar.clock-active {
+      color: #ffe5e5;
+      background: linear-gradient(
+        90deg,
+        rgba(170, 0, 0, 0.8),
+        rgba(0, 0, 0, 0.95)
+      );
+      border-color: rgba(255, 80, 80, 0.9);
+      box-shadow: 0 0 18px rgba(255, 0, 0, 0.6);
+    }
+
+    /* BloodBath Navbar Badge */
+    .bb-badge {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      background: rgba(90, 90, 90, 0.25);
+      border: 1px solid rgba(140, 140, 140, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      transition: 0.25s ease;
+    }
+
+    .bb-badge.active {
+      background: rgba(255, 0, 0, 0.25);
+      border-color: rgba(255, 60, 60, 0.8);
+      color: #ffbcbc;
+      box-shadow: 0 0 12px rgba(255, 0, 0, 0.6),
+                  0 0 25px rgba(255, 0, 0, 0.4);
+      animation: pulse-red 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 8px rgba(255,0,0,0.5); }
+      50% { box-shadow: 0 0 18px rgba(255,0,0,0.9); }
+      100% { box-shadow: 0 0 8px rgba(255,0,0,0.5); }
+    }
+
+    /* Responsive */
+
+    @media (max-width: 880px) {
+      .hero {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .hero-art {
+        order: -1;
+      }
+
+      nav ul {
+        display: none;
+      }
+
+      .nav-inner {
+        padding-inline: 0.9rem;
+      }
+
+      .grid-3 {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .grid-2,
+      .server-grid,
+      .mods-grid,
+      .announcements {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .section {
+        padding-inline: 0.9rem;
+      }
+    }
+  </style>
+</head>
+
+<body data-theme="dark">
+<div id="bloodbathPopup">🔥 BLOODBATH IS NOW LIVE!</div>
+  <div class="page">
+    <header>
+      <div class="nav-inner">
+
+        <!-- BRAND / LOGO -->
+        <div class="brand">
+          <img src="assets/convoy-logo.png" alt="The Convoy DayZ" />
+          <div class="brand-title">The Convoy</div>
+        </div>
+
+        <!-- NAVIGATION -->
+        <nav>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#servers">Servers</a></li>
+            <li><a href="#rules">Rules</a></li>
+            <li><a href="#join">How to Join</a></li>
+            <li><a href="#mods">Mods</a></li>
+            <li><a href="#community">Community</a></li>
+          </ul>
+        </nav>
+
+        <!-- RIGHT SIDE -->
+        <div class="nav-right">
+          <div class="pill-badge">Hardcore</div>
+
+          <!-- BLOODBATH BADGE -->
+          <div class="bb-badge" id="bbBadge">BloodBath: OFF</div>
+
+          <button class="toggle-btn" id="themeToggle" type="button">
+            <span>🌑</span>
+            <span class="toggle-label">Dark</span>
+          </button>
+        </div>
+
+      </div> <!-- END nav-inner -->
+
+      <!-- BLOODBATH CLOCK BAR -->
+      <div class="clock-bar" id="clockBar">
+        <span id="clockTime">--:--:-- PST</span>
+        <span id="bloodbathStatus">Checking BloodBath schedule…</span>
+      </div>
+
+    </header>
+
+    <main>
+      <!-- HERO -->
+      <section class="section hero" id="top">
+        <div class="hero-main">
+          <div class="hero-kicker">
+            Survive the Route &bull; Loot the Convoy
+          </div>
+
+          <h1 class="hero-title">
+            <span>The Convoy</span>
+            <span class="accent">DayZ Server</span>
+          </h1>
+
+          <p class="hero-subtitle">
+            Custom items, cartel hideouts, keycard bunkers and PvP zones that
+            turn into killing fields when the sirens hit. Run with the convoy,
+            raid it, or die trying.
+          </p>
+
+          <div class="hero-actions">
+            <a
+              class="btn btn-primary"
+              href="steam://connect/104.249.63.254:2680"
+              title="Connect to BanovFrost"
+            >
+              Join BanovFrost
+            </a>
+
+            <a
+              class="btn btn-ghost"
+              href="https://discord.gg/Wy924uRQrh"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Join the Discord
+            </a>
+          </div>
+
+          <div class="hero-meta">
+            <span><strong>Map:</strong> BanovFrost / Winter Survival</span>
+            <span><strong>Style:</strong> PvE routes & PvP events</span>
+            <span><strong>Wipes:</strong> Seasonal & event-driven</span>
+          </div>
+        </div>
+
+        <aside class="hero-art">
+          <div class="hero-art-header">
+            <span class="hero-tag">Featured Poster</span>
+            <span>Admins Vs Players</span>
+          </div>
+
+          <!-- Your graphic banner -->
+          <img
+            src="assets/convoy-logo.png"
+            alt="The Convoy soldier fighting zombie artwork"
+          />
+
+          <div class="hero-ribbon">
+            <span class="dot"></span>
+            <div>
+              <strong>Convoy Events</strong><br />
+              <span>BloodBath Weekends • PvP Events • Stash Houses</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <!-- FEATURES -->
+      <section class="section" id="features">
+        <div class="section-kicker">What makes us different</div>
+        <h2 class="section-title">Survival-Driven Gameplay</h2>
+        <p class="section-subtitle">
+          The Convoy BanovFrost is built for players who want the authentic struggle of DayZ winter survival without losing the heart of vanilla. Snowy valleys and frozen cities hide cartel stash houses, quest lines, hidden bunkers, and rotating custom loot events that reward exploration and risk. Nothing is overpowered or out of place just the classic DayZ experience with meaningful activities that make every trip into the cold worth it.
+        </p>
+
+        <div class="grid-3">
+          <article class="card">
+            <div class="card-header">
+              <h3 class="card-title">Hidden Stashes</h3>
+              <span class="card-badge">Events</span>
+            </div>
+            <div class="card-body">
+              <p>
+                Hidden stash keys can be found naturally by killing zombies and looting the world. These keys unlock extremely valuable locations that are cleverly hidden in plain sight across the map, rewarding players who explore and fight for their loot.
+              </p>
+              <ul>
+                <li>Find it. Claim it.</li>
+                <li>Survival items and rare loot.</li>
+                <li>Remember to stay warm.</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h3 class="card-title">Keycards & Loot Rooms</h3>
+              <span class="card-badge">Risk & Reward</span>
+            </div>
+            <div class="card-body">
+              <p>
+                Hunt keycards, bunkers and cartel safehouses to unlock
+                high-tier loot hidden across the map.
+              </p>
+              <ul>
+                <li>High tier items</li>
+                <li>Custom loot rooms with building supplies & guns</li>
+                <li>Timed access – get in, loot up, get out</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h3 class="card-title">Balanced Progression</h3>
+              <span class="card-badge">Economy</span>
+            </div>
+            <div class="card-body">
+              <p>
+                Grinding matters, but smart plays matter more. Traders, loot
+                rooms, and events are tuned around long term survival.
+              </p>
+              <ul>
+                <li>Custom traders & black market zone</li>
+                <li>Ammo & meta guns kept in check</li>
+                <li>Endgame routes, not just endgame gear</li>
+              </ul>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- SERVERS -->
+      <section class="section" id="servers">
+        <div class="section-kicker">Pick your struggle</div>
+        <h2 class="section-title">Server Lineup</h2>
+        <p class="section-subtitle">
+          Multiple servers under one brand. Same Convoy DNA, different levels
+          of pain.
+        </p>
+
+        <div class="server-grid">
+          <article class="card server-card">
+            <div class="card-header">
+              <h3 class="card-title">The Convoy BanovFrost PvE-PvP</h3>
+              <span class="card-badge">Main</span>
+            </div>
+            <div class="card-body">
+              <p>
+                Bunkers, lootrooms, and brutal
+                weather where your gear <em>will</em> betray you.
+              </p>
+              <div class="server-chip-row">
+                <span class="server-chip">PvE</span>
+                <span class="server-chip">PvP Zones</span>
+                <span class="server-chip">Custom Mods</span>
+              </div>
+
+              <div class="server-ip">
+                <span>IP:</span> 104.249.63.254:2680
+              </div>
+
+              <div class="server-actions">
+                <a
+                  class="btn-mini"
+                  href="steam://connect/104.249.63.254:2680"
+                >
+                  Connect via Steam
+                </a>
+                <button class="btn-mini" type="button" onclick="copyIp('104.249.63.254:2680')">
+                  Copy IP
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card server-card">
+            <div class="card-header">
+              <h3 class="card-title">The Convoy Chernarus PvP</h3>
+              <span class="card-badge">Chill(ish)</span>
+            </div>
+            <div class="card-body">
+              <p>
+                Focused on exploration, PvP and the original DayZ feel.
+              </p>
+              <div class="server-chip-row">
+                <span class="server-chip">Survival</span>
+                <span class="server-chip">PvP</span>
+                <span class="server-chip">Exploration</span>
+              </div>
+
+              <div class="server-ip">
+                <span>IP:</span> 162.220.10.202:2302
+              </div>
+
+              <div class="server-actions">
+                <a
+                  class="btn-mini"
+                  href="steam://connect/162.220.10.202:2302"
+                >
+                  Connect via Steam
+                </a>
+                <button class="btn-mini" type="button" onclick="copyIp('162.220.10.202:2302')">
+                  Copy IP
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- RULES -->
+      <section class="section" id="rules">
+        <div class="section-kicker">Know the Law of the Land</div>
+        <h2 class="section-title">Server Rules</h2>
+        <p class="section-subtitle">
+          The Convoy runs on fairness, respect, and brutal survival. Read these carefully – rules are enforced with zero hesitation.
+        </p>
+
+        <div class="grid-2">
+          <!-- GENERAL RULES -->
+          <article class="card">
+            <div class="card-header">
+              <h3 class="card-title">General Rules</h3>
+              <span class="card-badge">Required</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>🚫 No impersonating owners or admins.</li>
+                <li><span class="num">02</span>📦 No abusing inventory space.</li>
+                <li><span class="num">03</span>📣 No advertising other servers — anywhere.</li>
+                <li><span class="num">04</span>🎥 Clips may be requested for reports.</li>
+                <li><span class="num">05</span>🛑 No logging out in bunkers or keycard rooms.</li>
+                <li><span class="num">06</span>🚗❌ No vehicle unstucks & no lost item replacements.</li>
+                <li><span class="num">07</span>🔄 No loot cycling (moving loot to force respawns).</li>
+                <li><span class="num">08</span>🚷 Zero tolerance for racism, sexism, harassment or bullying — instant ban.</li>
+                <li><span class="num">09</span>🧠 Use common sense.</li>
+                <li><span class="num">10</span>💸 No scamming trades. Proof = ban. Use Discord for trades.</li>
+                <li><span class="num">11</span>⚠️ No cheats, glitches, or exploits — permanent ban.</li>
+                <li><span class="num">12</span>🏚️ Bases unoccupied for 5 days will be deleted. (Logging in/out doesn’t count; make a ticket if away.)</li>
+                <li><span class="num">13</span>🔫 BallerZ & HK512 weapons are PvE-only.</li>
+                <li><span class="num">14</span>📦❌ No item replacements for despawns or misplacement.</li>
+              </ul>
+            </div>
+          </article>
+
+          <!-- BASE BUILDING RULES -->
+          <article class="card">
+            <div class="card-header">
+              <h3 class="card-title">Base Building Rules</h3>
+              <span class="card-badge">Construction</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>🚫 No floating bases — must be grounded.</li>
+                <li><span class="num">02</span>🌊 No building on water (boat docks allowed).</li>
+                <li><span class="num">03</span>🧱 Illegally placed or stacked items = admin deletion.</li>
+                <li><span class="num">04</span>📏 Build distance rules:
+                  <br>🟢 750m from allies
+                  <br>🔴 300m from enemies
+                  <br>🛡️ 1000m from Safe Zones
+                  <br>🚪 500m from spawn points
+                  <br>🎖️ 500m from military areas
+                </li>
+                <li><span class="num">05</span>🏗️ Max base height: 5 floors.</li>
+                <li><span class="num">06</span>🏠 Ground = Floor 1 in static buildings.</li>
+                <li><span class="num">07</span>🛖 Only 1 added floor allowed on static roofs.</li>
+                <li><span class="num">08</span>🏘️ One base per group, one cabin/portable house per player.</li>
+                <li><span class="num">09</span>🛣️ No blocking roads, POI paths, or trails.</li>
+                <li><span class="num">10</span>🎯 No building within 700m of high-tier POIs.</li>
+                <li><span class="num">11</span>🪵 Do not block wood piles or wells.</li>
+                <li><span class="num">12</span>🚪🚪 No stacking doors/walls — must be 1 floor apart.</li>
+                <li><span class="num">13</span>🏕️ No small tents inside large tents.</li>
+                <li><span class="num">14</span>⚠️ Illegal bases risk admin claim; 24 hours to fix (except raid weekends).</li>
+                <li><span class="num">15</span>🏘️ Large bases must be away from towns/roads to reduce lag.</li>
+                <li><span class="num">16</span>🚔 No building in police, prison or medical buildings without approval.</li>
+                <li><span class="num">17</span>🔥 Illegally placed items may be deleted anytime.</li>
+              </ul>
+            </div>
+          </article>
+        </div>
+
+        <!-- VEHICLE RULES -->
+        <div class="section" style="padding-top:1.6rem;">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Vehicle Rules</h3>
+              <span class="card-badge">Transport</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>🚫 No unstucks. No refunds. No exceptions.</li>
+                <li><span class="num">02</span>🚁 Group limits:
+                  <br>• 2 helicopters
+                  <br>• 3 vehicles (if helis owned)
+                </li>
+                <li><span class="num">03</span>🛑 Excess vehicles deleted with no warning.</li>
+                <li><span class="num">04</span>🥩 All vehicles must be camo-net covered.</li>
+                <li><span class="num">05</span>🚗❌ Uncovered = despawn risk, no refunds.</li>
+                <li><span class="num">06</span>⚠️ Vehicles are unreliable — use at your own risk.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- IMPORTANT NOTES -->
+        <div class="section" style="padding-top:1.6rem;">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Important Notes</h3>
+              <span class="card-badge">Read This</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>🧠 Use common sense. It solves 90% of problems.</li>
+                <li><span class="num">02</span>📝 Questions? Open a ticket anytime.</li>
+                <li><span class="num">03</span>🙏 Thank you for helping keep The Convoy fair, fun, and drama-free!</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOODBATH RULES -->
+        <section class="section" id="bloodbath">
+          <div class="section-kicker">Weekend Chaos Mode</div>
+          <h2 class="section-title">✯ BloodBath Rules ✯</h2>
+          <p class="section-subtitle">
+            BloodBath is The Convoy’s high-intensity weekend event. Expect danger, full-map PvP, and strict raid rules.
+          </p>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">BloodBath Weekend Schedule</h3>
+              <span class="card-badge">Important</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>🕓 <strong>Every Friday 5 PM PST – Sunday 10 PM PST</strong></li>
+                <li><span class="num">02</span>🔴 <strong>FULL MAP PvP on the LAST WEEKEND of the month only.</strong></li>
+                <li><span class="num">03</span>⚠️ <strong>RAIDING allowed ONLY on the LAST WEEKEND of the month.</strong></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Raid Rules (Last Weekend Only)</h3>
+              <span class="card-badge">Raiding</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Door raids only – realistic entry methods.</li>
+                <li><span class="num">02</span>No item stacking, floating, or prop climbing.</li>
+                <li><span class="num">03</span>No griefing – don’t destroy items you aren’t taking.</li>
+                <li><span class="num">04</span>No safezone theft.</li>
+                <li><span class="num">05</span>No dismantling bases.</li>
+                <li><span class="num">06</span>No tanks for raiding or damaging bases.</li>
+                <li><span class="num">07</span>Explosives allowed only AFTER the first door is blown.</li>
+                <li><span class="num">08</span>No illegal entry methods of any kind.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Ban-Worthy Actions</h3>
+              <span class="card-badge">Zero Tolerance</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Glitching, cheating, or exploiting = immediate ban.</li>
+                <li><span class="num">02</span>Combat logging: wait 10 mins after PvP, 15 mins if surrounded.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Vehicles During BloodBath</h3>
+              <span class="card-badge">Transport</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Helicopters may be shot down anywhere – fly at your own risk.</li>
+                <li><span class="num">02</span>Tanks may only kill players – NOT raid bases.</li>
+                <li><span class="num">03</span>No heli abuse or landing in player territory.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Raid Group Limit</h3>
+              <span class="card-badge">Group Size</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Max 5 players per raid group.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">BallerZ Weapons Policy</h3>
+              <span class="card-badge">Weapons</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>BallerZ weapons are NOT allowed for PvP or raiding.</li>
+                <li><span class="num">02</span>Using a BallerZ weapon will result in immediate deletion.</li>
+                <li><span class="num">03</span>BallerZ guns allowed ONLY for PvE (zombies/animals).</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Vehicle Storage Rules</h3>
+              <span class="card-badge">Storage</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>All vehicles at traders/garages must be EMPTY.</li>
+                <li><span class="num">02</span>Vehicles with loot will be deleted without warning.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Valuables & Combat Logging</h3>
+              <span class="card-badge">Economy</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Logging out with valuables during BloodBath is prohibited.</li>
+                <li><span class="num">02</span>Violators will have personal & group bank accounts wiped.</li>
+                <li><span class="num">03</span>Players will respawn as freshies if caught.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Base & Raiding Conduct</h3>
+              <span class="card-badge">Integrity</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Taking items through walls is allowed – secure your base.</li>
+                <li><span class="num">02</span>No logging in/out of enemy bases.</li>
+                <li><span class="num">03</span>No placing codelocks on bases you do not own.</li>
+                <li><span class="num">04</span>Bases inside static PvP zones may be raided anytime.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Raid Accountability</h3>
+              <span class="card-badge">Proof</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Recording raids is strongly encouraged.</li>
+                <li><span class="num">02</span>Tickets with clips protect you from false claims.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:1.4rem;">
+            <div class="card-header">
+              <h3 class="card-title">Base Location Confidentiality</h3>
+              <span class="card-badge">Privacy</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>Do NOT share player base locations publicly.</li>
+                <li><span class="num">02</span>Only share within your group.</li>
+                <li><span class="num">03</span>Violators face disciplinary action or bans.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Defender Rules</h3>
+              <span class="card-badge">Defense</span>
+            </div>
+            <div class="card-body">
+              <ul class="rules-list">
+                <li><span class="num">01</span>No rebuilding structures during an active raid.</li>
+                <li><span class="num">02</span>No replacing codelocks mid-raid.</li>
+                <li><span class="num">03</span>A raid is inactive 30 minutes after the last explosive.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- HOW TO JOIN -->
+      <section class="section" id="join">
+        <div class="section-kicker">New to The Convoy?</div>
+        <h2 class="section-title">How to Join</h2>
+        <p class="section-subtitle">
+          Pick a server, load the mods, and hit the road. Below are all current Convoy server connection details.
+        </p>
+
+        <div class="grid-2">
+          <!-- Steps -->
+          <article class="card">
+            <div class="card-header">
+              <h3 class="card-title">Step-By-Step</h3>
+              <span class="card-badge">Setup</span>
+            </div>
+            <div class="card-body">
+              <ol class="steps">
+                <li><strong>Subscribe</strong> to our mod collection on Steam (link in Discord).</li>
+                <li><strong>Launch DayZ</strong> with the official or community launcher.</li>
+                <li><strong>Load The Convoy mods</strong> and press <em>Join</em>.</li>
+                <li><strong>Problems?</strong> Open a ticket in Discord.</li>
+              </ol>
+            </div>
+          </article>
+
+          <!-- Recommended Settings -->
+          <article class="card">
+            <div class="card-header">
+              <h3 class="card-title">Recommended Settings</h3>
+              <span class="card-badge">Performance</span>
+            </div>
+            <div class="card-body">
+              <ul class="steps">
+                <li><strong>View Distance:</strong> 1500–2000 for smoother gameplay.</li>
+                <li><strong>Textures/Objects:</strong> Medium or High depending on your PC.</li>
+                <li><strong>Clouds/Shadows:</strong> Lower these to improve FPS.</li>
+                <li><strong>Launcher crashing?</strong> Screenshot mods & submit a ticket.</li>
+              </ul>
+            </div>
+          </article>
+        </div>
+
+        <!-- SERVER CONNECTION INFO -->
+        <div class="section" style="padding-top:1.6rem;">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Server Connection Info</h3>
+              <span class="card-badge">Chernarus / BanovFrost</span>
+            </div>
+
+            <div class="card-body">
+              <!-- CHERNARUS MAIN -->
+              <div class="server-ip" style="margin-bottom:1rem;">
+                <strong>🎯 𝖳𝗁𝖾 𝖢𝗈𝗇𝗏𝗈𝗒 𝖢𝗁𝖾𝗋𝗇𝖺𝗋𝗎𝗌 🎯</strong><br>
+                <span>IP:</span> 162.220.10.202<br>
+                <span>Port:</span> 2302<br>
+
+                <div class="server-actions" style="margin-top:0.4rem;">
+                  <a class="btn-mini" href="steam://connect/162.220.10.202:2302">Connect via Steam</a>
+                  <button class="btn-mini" onclick="copyIp('162.220.10.202:2302')">Copy IP</button>
+                </div>
+              </div>
+
+              <!-- BANOVFROST -->
+              <div class="server-ip">
+                <strong>🎯 𝖳𝗁𝖾 𝖢𝗈𝗇𝗏𝗈𝗒 𝖡𝖺𝗇𝗈𝗏𝖿𝗋𝗈𝗌𝗍 🎯</strong><br>
+                <span>IP:</span> 104.249.63.254<br>
+                <span>Port:</span> 2680<br>
+
+                <div class="server-actions" style="margin-top:0.4rem;">
+                  <a class="btn-mini" href="steam://connect/104.249.63.254:2680">Connect via Steam</a>
+                  <button class="btn-mini" onclick="copyIp('104.249.63.254:2680')">Copy IP</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MODS -->
+      <section class="section" id="mods">
+        <div class="section-kicker">Under the hood</div>
+        <h2 class="section-title">Modded for chaos</h2>
+        <p class="section-subtitle">
+          Custom mods made for our server to make it more enjoyable.
+        </p>
+
+        <div class="mods-grid">
+          <div>
+            <h3 style="font-size:0.86rem; text-transform:uppercase; letter-spacing:0.14em; margin-bottom:0.4rem;">
+              Core & Gameplay
+            </h3>
+            <ul>
+              <li>Expansion AI</li>
+              <li>Custom Convoy mod packs (weapons, storage, clothing)</li>
+              <li>Keycard & loot room systems</li>
+              <li>Quest & story events</li>
+              <li>Advanced medical & drugs</li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 style="font-size:0.86rem; text-transform:uppercase; letter-spacing:0.14em; margin-bottom:0.4rem;">
+              Atmosphere & Extras
+            </h3>
+            <ul>
+              <li>Custom creatures & horde spawns</li>
+              <li>Cartel & military AI factions</li>
+              <li>Unique clothing</li>
+              <li>Quality-of-life & skills</li>
+              <li>Active Admins</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pill-row" style="margin-top:1.1rem;">
+          <span class="pill">Full mod list in Discord</span>
+          <span class="pill">Preset link in #getting-started</span>
+          <span class="pill">Report broken items in #bug-report</span>
+        </div>
+      </section>
+
+      <!-- COMMUNITY / DISCORD -->
+      <section class="section" id="community">
+        <div class="section-kicker">Convoy HQ</div>
+        <h2 class="section-title">Announcements & Community</h2>
+        <p class="section-subtitle">
+          Everything runs through Discord events, wipes, mod votes and server
+          changes. If you want a say in where the convoy goes next, that’s where
+          you need to be.
+        </p>
+
+        <div class="announcements">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Latest Announcements</h3>
+              <span class="card-badge">News</span>
+            </div>
+            <div class="card-body ann-feed">
+              <article class="ann-item">
+                <small>Incoming Event</small>
+                <h4>BloodBath Weekends</h4>
+                PvP & raiding last weekend of the month.
+              </article>
+
+              <article class="ann-item">
+                <small>Update</small>
+                <h4>BanovFrost</h4>
+                High-tier guns pulled slightly back, building supplies boosted.
+                We want more bases, not just more bodies.
+              </article>
+
+              <article class="ann-item">
+                <small>Community</small>
+                <h4>Feedback & Suggestions</h4>
+                Drop your ideas for new content <strong>#convoy-suggestions</strong>.
+              </article>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Discord HQ</h3>
+              <span class="card-badge">Required</span>
+            </div>
+            <div class="card-body discord-card">
+              <p>
+                Join the Discord for real-time convoy pings, wipe schedules,
+                patch notes and support tickets. If you’re not in Discord, you’re
+                missing half the game.
+              </p>
+
+              <a
+                class="btn btn-primary"
+                href="https://discord.gg/fhpFnYJGHB"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Enter Convoy HQ
+              </a>
+
+              <div class="discord-tag">
+                #the-convoy &middot; /tickets &middot; /rules &middot; /modlist
+              </div>
+
+              <p style="margin-top:0.4rem;">
+                Need help? Open a ticket with your in-game name, server and a
+                short description of the issue. Logs and screenshots speed things
+                up.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>
+        <span class="brand-foot">The Convoy</span> &middot; DayZ Server
+      </div>
+      <div style="margin-top:0.4rem;">
+        Not affiliated with Bohemia Interactive. All DayZ trademarks are property of their respective owners.
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // THEME TOGGLE
+    const themeToggle = document.getElementById("themeToggle");
+    const toggleLabel = themeToggle.querySelector(".toggle-label");
+
+    function setTheme(theme) {
+      document.body.setAttribute("data-theme", theme);
+      toggleLabel.textContent = theme === "dark" ? "Dark" : "Light";
+      themeToggle.firstElementChild.textContent =
+        theme === "dark" ? "🌑" : "☀️";
+      try {
+        localStorage.setItem("convoy-theme", theme);
+      } catch {}
+    }
+
+    themeToggle.addEventListener("click", () => {
+      const current = document.body.getAttribute("data-theme") || "dark";
+      setTheme(current === "dark" ? "light" : "dark");
+    });
+
+    (function () {
+      try {
+        const saved = localStorage.getItem("convoy-theme");
+        if (saved === "light" || saved === "dark") setTheme(saved);
+      } catch {}
+    })();
+
+    // COPY IP BUTTON
+    function copyIp(ip) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(ip).then(
+          () => alert("Copied server IP: " + ip),
+          () => alert("Could not copy IP, please copy it manually.")
+        );
+      } else {
+        alert("Please copy this IP: " + ip);
+      }
+    }
+
+    // BLOODBATH CLOCK SYSTEM
+    const clockBar = document.getElementById("clockBar");
+    const clockTimeEl = document.getElementById("clockTime");
+    const bloodbathStatusEl = document.getElementById("bloodbathStatus");
+    const bbBadge = document.getElementById("bbBadge");
+
+    function getLastFridayPST(refDate) {
+      const year = refDate.getFullYear();
+      const month = refDate.getMonth();
+      let d = new Date(year, month + 1, 0);
+      while (d.getDay() !== 5) {
+        d.setDate(d.getDate() - 1);
+      }
+      return d;
+    }
+
+    let bloodbathWasActive = false;
+
+function updateClockAndBloodbath() {
+  const now = new Date();
+
+  const pstString = now.toLocaleString("en-US", {
+    timeZone: "America/Los_Angeles",
+  });
+  const pst = new Date(pstString);
+
+  // Update clock
+  clockTimeEl.textContent =
+    pst.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }) + " PST";
+
+  const lastFriday = getLastFridayPST(pst);
+
+  const start = new Date(
+    lastFriday.getFullYear(),
+    lastFriday.getMonth(),
+    lastFriday.getDate(),
+    17, 0, 0
+  );
+
+  const end = new Date(
+    lastFriday.getFullYear(),
+    lastFriday.getMonth(),
+    lastFriday.getDate() + 2,
+    22, 0, 0
+  );
+
+  const isActive = pst >= start && pst <= end;
+
+  /* ---- NEW: Border + Popup Trigger ---- */
+  const popup = document.getElementById("bloodbathPopup");
+
+  if (isActive) {
+    document.body.classList.add("bloodbath-active");
+
+    if (!bloodbathWasActive) {
+      popup.classList.add("show");
+      setTimeout(() => popup.classList.remove("show"), 8000);
+    }
+
+    bloodbathWasActive = true;
+  } else {
+    document.body.classList.remove("bloodbath-active");
+    bloodbathWasActive = false;
+  }
+
+  /* ---- Existing UI updates ---- */
+  if (isActive) {
+    clockBar.classList.add("clock-active");
+    bloodbathStatusEl.textContent =
+      "🔥 BloodBath ACTIVE — Full PvP & Raiding (Fri 5 PM → Sun 10 PM PST)";
+    bbBadge.classList.add("active");
+    bbBadge.textContent = "BloodBath: ACTIVE";
+    return;
+  }
+
+  clockBar.classList.remove("clock-active");
+  bbBadge.classList.remove("active");
+  bbBadge.textContent = "BloodBath: OFF";
+
+  // Next weekend
+  let nextStart = start;
+  if (pst > end) {
+    const nextMonth = new Date(pst.getFullYear(), pst.getMonth() + 1, 1);
+    const nextFri = getLastFridayPST(nextMonth);
+    nextStart = new Date(
+      nextFri.getFullYear(),
+      nextFri.getMonth(),
+      nextFri.getDate(),
+      17, 0, 0
+    );
+  }
+
+  const dateStr = nextStart.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "America/Los_Angeles",
+  });
+
+  bloodbathStatusEl.textContent =
+    "Next BloodBath: LAST Friday @ 5 PM PST (" + dateStr + ")";
+}
+
+    updateClockAndBloodbath();
+    setInterval(updateClockAndBloodbath, 1000);
+  </script>
+</body>
+</html>
