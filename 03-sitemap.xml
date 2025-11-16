@@ -1,7 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    <url>
-        <loc>https://1800comegetsome.github.io/the-convoy-website/</loc>
-        <lastmod>2025-01-01</lastmod>
-    </url>
+
+  <url>
+    <loc>https://1800comegetsome.github.io/the-convoy-website/</loc>
+    <lastmod>2025-01-01</lastmod>
+  </url>
+
+  <url>
+    <loc>https://1800comegetsome.github.io/the-convoy-website/#features</loc>
+  </url>
+
+  <url>
+    <loc>https://1800comegetsome.github.io/the-convoy-website/#servers</loc>
+  </url>
+
+  <url>
+    <loc>https://1800comegetsome.github.io/the-convoy-website/#rules</loc>
+  </url>
+
+  <url>
+    <loc>https://1800comegetsome.github.io/the-convoy-website/#join</loc>
+  </url>
+
+  <url>
+    <loc>https://1800comegetsome.github.io/the-convoy-website/#mods</loc>
+  </url>
+
+  <url>
+    <loc>https://1800comegetsome.github.io/the-convoy-website/#community</loc>
+  </url>
+
 </urlset>
