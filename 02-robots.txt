@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://1800comegetsome.github.io/the-convoy-website/sitemap.xml
