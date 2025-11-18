@@ -1769,10 +1769,13 @@ function updateClockAndBloodbath() {
   </script>
 
 <!-- ===== CONVOY LIVE CHAT WIDGET (Firebase, Always Visible Bottom-Right) ===== -->
+<!-- ===== CONVOY LIVE CHAT WIDGET (Firebase) ===== -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/emoji-mart@3.0.0/dist/browser.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@3.0.0/css/emoji-mart.css" />
+
+<!-- Emoji picker (guarded so it never crashes the chat) -->
+<script src="https://cdn.jsdelivr.net/npm/emoji-mart@5.6.0/dist/browser.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@5.6.0/dist/browser.css" />
 
 <style>
   #convoyChatBtn {
@@ -1823,12 +1826,30 @@ function updateClockAndBloodbath() {
   .chatMsg.theirs { background:#111827; margin-right:auto; color:white; }
 
   #chatInputArea { display:flex; gap:6px; padding:8px; background:#020617; border-top:1px solid #1e293b; }
-  #chatInput { flex:1; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:white; }
-  #emojiBtn, #sendBtn { padding:8px 12px; border:none; border-radius:8px; cursor:pointer; }
+  #chatInput {
+    flex:1;
+    padding:8px;
+    border-radius:8px;
+    border:1px solid #334155;
+    background:#0f172a;
+    color:white;
+  }
+  #emojiBtn, #sendBtn {
+    padding:8px 12px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+  }
   #emojiBtn { background:#334155; color:white; }
   #sendBtn { background:#f0b232; color:black; font-weight:bold; }
 
-  #emojiPicker { position:absolute; bottom:150px; right:20px; z-index:999999; display:none; }
+  #emojiPicker {
+    position:absolute;
+    bottom:150px;
+    right:20px;
+    z-index:999999;
+    display:none;
+  }
 </style>
 
 <div id="convoyChatBtn">💬 Chat</div>
@@ -1856,26 +1877,24 @@ function updateClockAndBloodbath() {
     appId: "1:314351865888:web:cb3651ca8fc00abeda2c45"
   };
 
+  // Init Firebase
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
   const messagesRef = db.ref("LiveChat/messages");
 
   const NAME_KEY = "convoyUsername";
-
   let username = null;
   try {
     username = localStorage.getItem(NAME_KEY) || "";
   } catch(e) {
     username = "";
   }
-
   if (!username) {
     username = prompt("Enter your name for Convoy Chat:", "Survivor") || "Survivor";
     try { localStorage.setItem(NAME_KEY, username); } catch(e) {}
   }
 
   const OWNER = "1800ComeGetSome";
-
   function displayName(name) {
     if (!name) return "Unknown";
     if (name.trim().toLowerCase() === OWNER.toLowerCase()) {
@@ -1896,17 +1915,24 @@ function updateClockAndBloodbath() {
     chatBox.classList.toggle("open");
   };
 
-  // Emoji picker
-  const picker = new EmojiMart.Picker({
-    onEmojiSelect: (emoji) => {
-      chatInput.value += emoji.native;
-      emojiPicker.style.display = "none";
-      chatInput.focus();
-    }
-  });
-  emojiPicker.appendChild(picker);
+  // Emoji picker – guarded so missing script doesn't break chat
+  let picker = null;
+  if (window.EmojiMart && EmojiMart.Picker) {
+    picker = new EmojiMart.Picker({
+      onEmojiSelect: (emoji) => {
+        chatInput.value += emoji.native;
+        emojiPicker.style.display = "none";
+        chatInput.focus();
+      }
+    });
+    emojiPicker.appendChild(picker);
+  }
 
   emojiBtn.onclick = () => {
+    if (!picker) {
+      console.warn("EmojiMart not loaded, emoji picker disabled.");
+      return;
+    }
     emojiPicker.style.display =
       emojiPicker.style.display === "none" ? "block" : "none";
   };
@@ -1927,7 +1953,7 @@ function updateClockAndBloodbath() {
       ? new Date(msg.time).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})
       : "";
     div.innerHTML =
-      '<strong>' + escapeHtml(displayName(msg.user)) + "</strong>" +
+      "<strong>" + escapeHtml(displayName(msg.user)) + "</strong>" +
       (t ? " • " + escapeHtml(t) : "") +
       "<br>" + escapeHtml(msg.text);
     chatMessages.appendChild(div);
@@ -1936,7 +1962,7 @@ function updateClockAndBloodbath() {
     }
   }
 
-  // Load existing + listen for new messages
+  // Listen for new messages
   messagesRef.limitToLast(100).on("child_added", (snap) => {
     const msg = snap.val();
     if (!msg) return;
@@ -1951,12 +1977,17 @@ function updateClockAndBloodbath() {
       text,
       time: Date.now()
     };
-    messagesRef.push(msg);
+    // push with callback so failures show in console
+    messagesRef.push(msg, (err) => {
+      if (err) {
+        console.error("Failed to send chat message:", err);
+        alert("Could not send chat message (check Firebase rules).");
+      }
+    });
     chatInput.value = "";
   }
 
   sendBtn.onclick = sendMessage;
-
   chatInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
   });
@@ -1966,3 +1997,4 @@ function updateClockAndBloodbath() {
 </body>
 
 </html>
+
