@@ -1768,7 +1768,9 @@ function updateClockAndBloodbath() {
     setInterval(updateClockAndBloodbath, 1000);
   </script>
 
-<!-- ===== CONVOY LIVE CHAT WIDGET (Local Chat, Bottom-Right) ===== -->
+<!-- ===== CONVOY LIVE CHAT WIDGET (Firebase, Always Visible Bottom-Right) ===== -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/emoji-mart@3.0.0/dist/browser.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@3.0.0/css/emoji-mart.css" />
 
@@ -1843,8 +1845,21 @@ function updateClockAndBloodbath() {
 </div>
 
 <script>
-  // Local-only Convoy chat (per browser) using localStorage
-  const ROOM_KEY = "convoyLocalChat_v1";
+  // ===== Firebase config =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyDPIU8gPZ3-reRVa5nf79YuUIQd6fHZvLo",
+    authDomain: "convoychat-c7d23.firebaseapp.com",
+    databaseURL: "https://convoychat-c7d23-default-rtdb.firebaseio.com",
+    projectId: "convoychat-c7d23",
+    storageBucket: "convoychat-c7d23.firebasestorage.app",
+    messagingSenderId: "314351865888",
+    appId: "1:314351865888:web:cb3651ca8fc00abeda2c45"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const messagesRef = db.ref("LiveChat/messages");
+
   const NAME_KEY = "convoyUsername";
 
   let username = null;
@@ -1904,30 +1919,6 @@ function updateClockAndBloodbath() {
       .replace(/"/g,"&quot;");
   }
 
-  function loadMessages() {
-    try {
-      const raw = localStorage.getItem(ROOM_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed;
-    } catch(e) {
-      return [];
-    }
-  }
-
-  function saveMessages(list) {
-    try {
-      localStorage.setItem(ROOM_KEY, JSON.stringify(list));
-    } catch(e) {}
-  }
-
-  function renderMessages() {
-    const msgs = loadMessages();
-    chatMessages.innerHTML = "";
-    msgs.forEach(msg => appendMessage(msg, false));
-  }
-
   function appendMessage(msg, scroll = true) {
     const mine = msg.user === username;
     const div = document.createElement("div");
@@ -1945,6 +1936,13 @@ function updateClockAndBloodbath() {
     }
   }
 
+  // Load existing + listen for new messages
+  messagesRef.limitToLast(100).on("child_added", (snap) => {
+    const msg = snap.val();
+    if (!msg) return;
+    appendMessage(msg);
+  });
+
   function sendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
@@ -1953,10 +1951,7 @@ function updateClockAndBloodbath() {
       text,
       time: Date.now()
     };
-    const msgs = loadMessages();
-    msgs.push(msg);
-    saveMessages(msgs);
-    appendMessage(msg);
+    messagesRef.push(msg);
     chatInput.value = "";
   }
 
@@ -1965,13 +1960,9 @@ function updateClockAndBloodbath() {
   chatInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
   });
-
-  // Initial render
-  renderMessages();
 </script>
 <!-- ===== END CHAT WIDGET ===== -->
 
 </body>
 
 </html>
-
