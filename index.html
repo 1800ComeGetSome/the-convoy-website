@@ -1768,8 +1768,7 @@ function updateClockAndBloodbath() {
     setInterval(updateClockAndBloodbath, 1000);
   </script>
 
-<!-- ===== CONVOY LIVE CHAT WIDGET (Always Visible Bottom-Right) ===== -->
-<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<!-- ===== CONVOY LIVE CHAT WIDGET (Local Chat, Bottom-Right) ===== -->
 <script src="https://cdn.jsdelivr.net/npm/emoji-mart@3.0.0/dist/browser.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@3.0.0/css/emoji-mart.css" />
 
@@ -1786,6 +1785,7 @@ function updateClockAndBloodbath() {
     cursor: pointer;
     z-index: 999999;
     box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    font-size: 0.9rem;
   }
 
   #convoyChatBox {
@@ -1843,76 +1843,131 @@ function updateClockAndBloodbath() {
 </div>
 
 <script>
-  const socket = io("https://chat.convoyrelay.net");
-  const ROOM = "the-convoy-chat";
+  // Local-only Convoy chat (per browser) using localStorage
+  const ROOM_KEY = "convoyLocalChat_v1";
+  const NAME_KEY = "convoyUsername";
 
-  let username = localStorage.getItem("convoyUsername");
+  let username = null;
+  try {
+    username = localStorage.getItem(NAME_KEY) || "";
+  } catch(e) {
+    username = "";
+  }
+
   if (!username) {
-    username = prompt("Enter your name:", "Survivor") || "Survivor";
-    localStorage.setItem("convoyUsername", username);
+    username = prompt("Enter your name for Convoy Chat:", "Survivor") || "Survivor";
+    try { localStorage.setItem(NAME_KEY, username); } catch(e) {}
   }
 
   const OWNER = "1800ComeGetSome";
 
-  function displayName(name){
-    return name === OWNER ? name + " ⭐" : name;
+  function displayName(name) {
+    if (!name) return "Unknown";
+    if (name.trim().toLowerCase() === OWNER.toLowerCase()) {
+      return name + " (⭐ Owner)";
+    }
+    return name;
   }
 
-  const btn = document.getElementById("convoyChatBtn");
-  const box = document.getElementById("convoyChatBox");
-  const messages = document.getElementById("chatMessages");
-  const input = document.getElementById("chatInput");
-  const send = document.getElementById("sendBtn");
+  const chatBtn = document.getElementById("convoyChatBtn");
+  const chatBox = document.getElementById("convoyChatBox");
+  const chatMessages = document.getElementById("chatMessages");
+  const chatInput = document.getElementById("chatInput");
+  const sendBtn = document.getElementById("sendBtn");
   const emojiBtn = document.getElementById("emojiBtn");
   const emojiPicker = document.getElementById("emojiPicker");
 
-  btn.onclick = ()=>{ box.classList.toggle("open"); };
+  chatBtn.onclick = () => {
+    chatBox.classList.toggle("open");
+  };
 
+  // Emoji picker
   const picker = new EmojiMart.Picker({
-    onEmojiSelect: e => {
-      input.value += e.native;
-      emojiPicker.style.display="none";
+    onEmojiSelect: (emoji) => {
+      chatInput.value += emoji.native;
+      emojiPicker.style.display = "none";
+      chatInput.focus();
     }
   });
   emojiPicker.appendChild(picker);
-  emojiBtn.onclick = ()=>{ emojiPicker.style.display = emojiPicker.style.display==="none"?"block":"none"; };
 
-  function beep(){
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = 700; osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.15);
-    osc.stop(ctx.currentTime+0.15);
+  emojiBtn.onclick = () => {
+    emojiPicker.style.display =
+      emojiPicker.style.display === "none" ? "block" : "none";
+  };
+
+  function escapeHtml(str) {
+    return (str || "")
+      .replace(/&/g,"&amp;")
+      .replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
   }
 
-  socket.emit("join", ROOM);
-
-  function sendMsg(){
-    const text = input.value.trim();
-    if (!text) return;
-    socket.emit("message",{room:ROOM, user:username, text, time:Date.now()});
-    input.value="";
+  function loadMessages() {
+    try {
+      const raw = localStorage.getItem(ROOM_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch(e) {
+      return [];
+    }
   }
-  send.onclick = sendMsg;
-  input.addEventListener("keypress", e=>{ if(e.key==="Enter") sendMsg(); });
 
-  socket.on("message", data=>{
-    if (data.room !== ROOM) return;
+  function saveMessages(list) {
+    try {
+      localStorage.setItem(ROOM_KEY, JSON.stringify(list));
+    } catch(e) {}
+  }
 
-    const mine = data.user === username;
+  function renderMessages() {
+    const msgs = loadMessages();
+    chatMessages.innerHTML = "";
+    msgs.forEach(msg => appendMessage(msg, false));
+  }
+
+  function appendMessage(msg, scroll = true) {
+    const mine = msg.user === username;
     const div = document.createElement("div");
-    div.className = "chatMsg " + (mine?"mine":"theirs");
+    div.className = "chatMsg " + (mine ? "mine" : "theirs");
+    const t = msg.time
+      ? new Date(msg.time).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})
+      : "";
+    div.innerHTML =
+      '<strong>' + escapeHtml(displayName(msg.user)) + "</strong>" +
+      (t ? " • " + escapeHtml(t) : "") +
+      "<br>" + escapeHtml(msg.text);
+    chatMessages.appendChild(div);
+    if (scroll) {
+      div.scrollIntoView({behavior:"smooth", block:"end"});
+    }
+  }
 
-    const t = new Date(data.time).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
-    div.innerHTML = `<strong>${displayName(data.user)}</strong> • ${t}<br>${data.text}`;
+  function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    const msg = {
+      user: username,
+      text,
+      time: Date.now()
+    };
+    const msgs = loadMessages();
+    msgs.push(msg);
+    saveMessages(msgs);
+    appendMessage(msg);
+    chatInput.value = "";
+  }
 
-    messages.appendChild(div);
-    div.scrollIntoView({behavior:"smooth"});
+  sendBtn.onclick = sendMessage;
 
-    if (!mine) beep();
+  chatInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
   });
+
+  // Initial render
+  renderMessages();
 </script>
 <!-- ===== END CHAT WIDGET ===== -->
 
