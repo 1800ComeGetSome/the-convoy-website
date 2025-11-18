@@ -905,10 +905,10 @@ body.bloodbath-active {
       </div> <!-- END nav-inner -->
 
       <!-- BLOODBATH CLOCK BAR -->
-      <div class="clock-bar" id="clockBar">
-        <span id="clockTime">--:--:-- PST</span>
-        <span id="bloodbathStatus">Checking BloodBath schedule…</span>
-      </div>
+<div class="clock-bar" id="clockBar" style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem; padding:0.35rem 0.75rem;">
+  <span id="bloodbathStatus" style="flex-shrink:0;">Checking BloodBath schedule…</span>
+  <span id="clockTime" style="flex-shrink:0;">--:--:-- PST</span>
+</div>
 
     </header>
 
@@ -1770,6 +1770,7 @@ function updateClockAndBloodbath() {
 </body>
 
 </html>
+
 
 
 
