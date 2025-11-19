@@ -2033,14 +2033,28 @@ function updateClockAndBloodbath() {
       ? new Date(msg.time).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})
       : "";
     div.innerHTML =
-      "<strong>" + escapeHtml(displayName(msg.user, msg.steamId)) + "</strong>" +
-      (t ? " • " + escapeHtml(t) : "") +
-      "<br>" + escapeHtml(msg.text);
-    chatMessages.appendChild(div);
-    if (scroll) {
-      div.scrollIntoView({behavior:"smooth", block:"end"});
+      function displayName(name, id) {
+  if (!name) return "Unknown";
+
+  let cleanName = String(name).trim();
+
+  // If the "name" is actually just a SteamID (all digits, 10–20 long)
+  if (/^\d{10,20}$/.test(cleanName)) {
+    // If it's a verified admin SteamID, map it back to their real name
+    if (VERIFIED_ADMINS[cleanName]) {
+      cleanName = VERIFIED_ADMINS[cleanName];
+    } else {
+      cleanName = "Survivor"; // fallback
     }
   }
+
+  // Add ⭐ badge if they are admin
+  if (isAdmin(cleanName, id)) {
+    return cleanName + " (⭐ Admin)";
+  }
+
+  return cleanName;
+}
 
   // Listen for new messages
   messagesRef.limitToLast(100).on("child_added", (snap) => {
