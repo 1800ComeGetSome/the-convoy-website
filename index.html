@@ -1853,6 +1853,22 @@ function updateClockAndBloodbath() {
 </style>
 
 <div id="convoyChatBtn">💬 Chat</div>
+<button id="adminLoginBtn" style="
+  background:#1d4ed8;
+  color:white;
+  border:none;
+  margin-top:8px;
+  padding:6px 12px;
+  border-radius:6px;
+  cursor:pointer;
+  font-weight:bold;
+  position:fixed;
+  bottom:70px;
+  right:25px;
+  z-index:999999;
+">
+  Admin Login (SteamID)
+</button>
 
 <div id="convoyChatBox">
   <div id="chatHeader">Convoy Live Chat</div>
@@ -2056,10 +2072,40 @@ function updateClockAndBloodbath() {
   chatInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
   });
+
+  // ==================== ADMIN LOGIN BUTTON ====================
+  window.addEventListener("load", () => {
+    const adminBtn = document.getElementById("adminLoginBtn");
+    if (!adminBtn) {
+      console.error("Admin Login button not found.");
+      return;
+    }
+
+    adminBtn.addEventListener("click", () => {
+      let newName = prompt("Enter your chat username:", username || "Survivor");
+      if (!newName) return;
+
+      let newSteamId = prompt("Enter your Steam64 ID:", steamId || "");
+      if (!newSteamId) return;
+
+      username = newName.trim();
+      steamId = newSteamId.trim();
+
+      try {
+        localStorage.setItem("convoyUsername", username);
+        localStorage.setItem("convoySteamId", steamId);
+      } catch(e) {
+        console.warn("Storage blocked:", e);
+      }
+
+      alert("Admin login updated! Refreshing...");
+      location.reload();
+    });
+  });
+
 </script>
 <!-- ===== END CHAT WIDGET ===== -->
 
 </body>
 
 </html>
-
