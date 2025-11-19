@@ -1883,22 +1883,78 @@ function updateClockAndBloodbath() {
   const messagesRef = db.ref("LiveChat/messages");
 
   const NAME_KEY = "convoyUsername";
+  const STEAM_KEY = "convoySteamId";
+
+  // Verified Steam admins (SteamID -> name)
+  const VERIFIED_ADMINS = {
+    "76561199131654590": "1800ComeGetSome",
+    "76561199013021061": "ToxicPrincesa"
+  };
+
+  // Name-only admins (no SteamID binding)
+  const NAME_ONLY_ADMINS = ["Sasha"];
+
   let username = null;
+  let steamId = null;
+
   try {
     username = localStorage.getItem(NAME_KEY) || "";
   } catch(e) {
     username = "";
   }
+  try {
+    steamId = localStorage.getItem(STEAM_KEY) || "";
+  } catch(e) {
+    steamId = "";
+  }
+
   if (!username) {
     username = prompt("Enter your name for Convoy Chat:", "Survivor") || "Survivor";
     try { localStorage.setItem(NAME_KEY, username); } catch(e) {}
   }
 
-  const OWNER = "1800ComeGetSome";
-  function displayName(name) {
+  if (!steamId) {
+    steamId = prompt("Enter your Steam64 ID (optional, for verification):", "") || "";
+    if (!steamId) {
+      steamId = "unknown";
+    }
+    try { localStorage.setItem(STEAM_KEY, steamId); } catch(e) {}
+  }
+
+  // Prevent stealing reserved admin names
+  (function enforceReservedNames() {
+    const reservedByName = {};
+    Object.keys(VERIFIED_ADMINS).forEach((id) => {
+      const n = VERIFIED_ADMINS[id];
+      if (n) reservedByName[n.toLowerCase()] = id;
+    });
+
+    const wanted = (username || "").trim().toLowerCase();
+    if (reservedByName[wanted] && reservedByName[wanted] !== steamId) {
+      alert("That name is reserved for a verified admin. Please choose a different name.");
+      let newName = prompt("Enter a different chat name:", "Survivor") || "Survivor";
+      username = newName;
+      try { localStorage.setItem(NAME_KEY, username); } catch(e) {}
+    }
+  })();
+
+  function isVerifiedAdmin(id) {
+    return !!VERIFIED_ADMINS[id];
+  }
+
+  function isNameOnlyAdmin(name) {
+    name = name || "";
+    return NAME_ONLY_ADMINS.some((n) => n.toLowerCase() === name.toLowerCase());
+  }
+
+  function isAdmin(name, id) {
+    return isVerifiedAdmin(id) || isNameOnlyAdmin(name);
+  }
+
+  function displayName(name, id) {
     if (!name) return "Unknown";
-    if (name.trim().toLowerCase() === OWNER.toLowerCase()) {
-      return name + " (⭐ Owner)";
+    if (isAdmin(name, id)) {
+      return name + " (⭐ Admin)";
     }
     return name;
   }
@@ -1949,11 +2005,19 @@ function updateClockAndBloodbath() {
     const mine = msg.user === username;
     const div = document.createElement("div");
     div.className = "chatMsg " + (mine ? "mine" : "theirs");
+
+    // Highlight admin messages
+    if (isAdmin(msg.user, msg.steamId)) {
+      div.style.backgroundColor = "#f0b232";
+      div.style.color = "#000";
+      div.style.fontWeight = "bold";
+    }
+
     const t = msg.time
       ? new Date(msg.time).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})
       : "";
     div.innerHTML =
-      "<strong>" + escapeHtml(displayName(msg.user)) + "</strong>" +
+      "<strong>" + escapeHtml(displayName(msg.user, msg.steamId)) + "</strong>" +
       (t ? " • " + escapeHtml(t) : "") +
       "<br>" + escapeHtml(msg.text);
     chatMessages.appendChild(div);
@@ -1974,6 +2038,7 @@ function updateClockAndBloodbath() {
     if (!text) return;
     const msg = {
       user: username,
+      steamId: steamId,
       text,
       time: Date.now()
     };
