@@ -1873,6 +1873,9 @@ function updateClockAndBloodbath() {
 <div id="convoyChatBox">
   <div id="chatHeader">Convoy Live Chat</div>
   <div id="chatMessages"></div>
+  <div id="chatTyping" class="chat-typing" style="display:none;font-size:0.75rem;color:#9ca3af;padding:4px 10px;">
+    Someone is typing...
+  </div>
   <div id="emojiPicker"></div>
   <div id="chatInputArea">
     <button id="emojiBtn">😊</button>
@@ -1967,17 +1970,94 @@ function updateClockAndBloodbath() {
     return isVerifiedAdmin(id) || isNameOnlyAdmin(name);
   }
 
+  // Simple admin alert sound
+  let adminAudio = null;
+  try {
+    adminAudio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+  } catch(e) {
+    adminAudio = null;
+  }
+
+  function playAdminPing() {
+    if (!adminAudio) return;
+    try {
+      adminAudio.currentTime = 0;
+      adminAudio.play().catch(() => {});
+    } catch(e) {}
+  }
+
+  // Firebase typing indicator reference
+  const typingRef = db.ref("LiveChat/typing");
+
+  function handleAdminCommand(text) {
+    if (!isVerifiedAdmin(steamId)) return false;
+    const trimmed = text.trim();
+
+    if (trimmed === "/clear") {
+      messagesRef.remove();
+      appendMessage({
+        user: "System",
+        steamId: "system",
+        text: "Chat cleared by an admin.",
+        time: Date.now()
+      });
+      return true;
+    }
+
+    if (trimmed.startsWith("/announce ")) {
+      const announcement = trimmed.slice(10).trim();
+      if (!announcement) return true;
+      messagesRef.push({
+        user: "⚠️ Announcement",
+        steamId: steamId,
+        text: announcement,
+        time: Date.now()
+      });
+      return true;
+    }
+
+    if (trimmed.startsWith("/kick ")) {
+      const target = trimmed.slice(6).trim();
+      if (!target) return true;
+      messagesRef.push({
+        user: "System",
+        steamId: steamId,
+        text: target + " has been kicked by an admin.",
+        time: Date.now()
+      });
+      return true;
+    }
+
+    return false;
+  }
+
   function displayName(name, id) {
     if (!name) return "Unknown";
-    if (isAdmin(name, id)) {
-      return name + " (⭐ Admin)";
+
+    let cleanName = String(name).trim();
+
+    // If the "name" is actually just a SteamID (all digits, 10–20 long)
+    if (/^\d{10,20}$/.test(cleanName)) {
+      // If it's a verified admin SteamID, map it back to their real name
+      if (VERIFIED_ADMINS[cleanName]) {
+        cleanName = VERIFIED_ADMINS[cleanName];
+      } else {
+        cleanName = "Survivor"; // fallback
+      }
     }
-    return name;
+
+    // Add ⭐ badge if they are admin
+    if (isAdmin(cleanName, id)) {
+      return cleanName + " (⭐ Admin)";
+    }
+
+    return cleanName;
   }
 
   const chatBtn = document.getElementById("convoyChatBtn");
   const chatBox = document.getElementById("convoyChatBox");
   const chatMessages = document.getElementById("chatMessages");
+  const chatTyping = document.getElementById("chatTyping");
   const chatInput = document.getElementById("chatInput");
   const sendBtn = document.getElementById("sendBtn");
   const emojiBtn = document.getElementById("emojiBtn");
@@ -2017,13 +2097,15 @@ function updateClockAndBloodbath() {
       .replace(/"/g,"&quot;");
   }
 
-  function appendMessage(msg, scroll = true) {
+    function appendMessage(msg, scroll = true) {
     const mine = msg.user === username;
     const div = document.createElement("div");
     div.className = "chatMsg " + (mine ? "mine" : "theirs");
 
+    const adminMsg = isAdmin(msg.user, msg.steamId);
+
     // Highlight admin messages
-    if (isAdmin(msg.user, msg.steamId)) {
+    if (adminMsg) {
       div.style.backgroundColor = "#f0b232";
       div.style.color = "#000";
       div.style.fontWeight = "bold";
@@ -2032,32 +2114,24 @@ function updateClockAndBloodbath() {
     const t = msg.time
       ? new Date(msg.time).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})
       : "";
+
     div.innerHTML =
-      function displayName(name, id) {
-  if (!name) return "Unknown";
+      "<strong>" + escapeHtml(displayName(msg.user, msg.steamId)) + "</strong>" +
+      (t ? " • " + escapeHtml(t) : "") +
+      "<br>" + escapeHtml(msg.text);
 
-  let cleanName = String(name).trim();
+    chatMessages.appendChild(div);
+    if (scroll) {
+      div.scrollIntoView({behavior:"smooth", block:"end"});
+    }
 
-  // If the "name" is actually just a SteamID (all digits, 10–20 long)
-  if (/^\d{10,20}$/.test(cleanName)) {
-    // If it's a verified admin SteamID, map it back to their real name
-    if (VERIFIED_ADMINS[cleanName]) {
-      cleanName = VERIFIED_ADMINS[cleanName];
-    } else {
-      cleanName = "Survivor"; // fallback
+    // Play admin alert ping for incoming admin messages
+    if (adminMsg && !mine) {
+      playAdminPing();
     }
   }
 
-  // Add ⭐ badge if they are admin
-  if (isAdmin(cleanName, id)) {
-    return cleanName + " (⭐ Admin)";
-  }
-
-  return cleanName;
-}
-
-  // Listen for new messages
-  messagesRef.limitToLast(100).on("child_added", (snap) => {
+messagesRef.limitToLast(100).on("child_added", (snap) => {
     const msg = snap.val();
     if (!msg) return;
     appendMessage(msg);
@@ -2066,6 +2140,13 @@ function updateClockAndBloodbath() {
   function sendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
+
+    // Admin commands (only for verified Steam admins)
+    if (handleAdminCommand(text)) {
+      chatInput.value = "";
+      return;
+    }
+
     const msg = {
       user: username,
       steamId: steamId,
@@ -2086,6 +2167,67 @@ function updateClockAndBloodbath() {
   chatInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
   });
+
+  // Typing indicator: notify others when this client is typing
+  let typingTimeout = null;
+  const TYPING_EXPIRE_MS = 4000;
+
+  function updateTypingStatus(isTyping) {
+    const id = steamId || ("anon-" + NAME_KEY);
+    if (!id) return;
+
+    if (isTyping) {
+      typingRef.child(id).set({
+        user: username,
+        steamId: steamId,
+        time: Date.now()
+      }).catch?.(() => {});
+    } else {
+      typingRef.child(id).remove();
+    }
+  }
+
+  if (chatInput) {
+    chatInput.addEventListener("input", () => {
+      if (!username) return;
+      updateTypingStatus(true);
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => updateTypingStatus(false), TYPING_EXPIRE_MS);
+    });
+
+    chatInput.addEventListener("blur", () => {
+      updateTypingStatus(false);
+    });
+  }
+
+  // Listen for other users typing
+  typingRef.on("value", (snap) => {
+    if (!chatTyping) return;
+    const data = snap.val() || {};
+    const others = [];
+
+    Object.keys(data).forEach((key) => {
+      const entry = data[key];
+      if (!entry) return;
+      if (entry.steamId === steamId) return;
+      others.push(entry.user || "Someone");
+    });
+
+    if (others.length === 0) {
+      chatTyping.style.display = "none";
+      chatTyping.textContent = "";
+      return;
+    }
+
+    const unique = [...new Set(others)];
+    chatTyping.style.display = "block";
+    if (unique.length === 1) {
+      chatTyping.textContent = unique[0] + " is typing...";
+    } else {
+      chatTyping.textContent = "Several survivors are typing...";
+    }
+  });
+
 
   // ==================== ADMIN LOGIN BUTTON ====================
   window.addEventListener("load", () => {
